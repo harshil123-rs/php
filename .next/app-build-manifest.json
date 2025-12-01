@@ -31,6 +31,16 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/medicine/page.js"
     ],
+    "/dashboard/ai/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/ai/page.js"
+    ],
+    "/dashboard/achievements/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/achievements/page.js"
+    ],
     "/dashboard/doctors/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -41,25 +51,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/emergency/page.js"
     ],
-    "/dashboard/achievements/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/achievements/page.js"
-    ],
-    "/dashboard/ai/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/ai/page.js"
-    ],
     "/dashboard/profile/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/profile/page.js"
     ],
-    "/auth/login/page": [
+    "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/auth/login/page.js"
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }
