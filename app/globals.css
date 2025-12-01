@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-background text-foreground;
+}
+
+.glass-card {
+  @apply bg-card/80 border border-card-border/60 backdrop-blur-xl shadow-glass rounded-xl;
+}
+
+.page-title {
+  @apply text-xl md:text-2xl font-semibold tracking-tight;
+}
+
+.page-subtitle {
+  @apply text-sm text-muted;
+}
+
+
