@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Phone, Star } from "lucide-react";
+import { MapPin, Navigation, Phone, Star, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import Map from "@/components/ui/map";
 
 type Category = "hospital" | "clinic" | "pharmacy";
 
@@ -17,11 +18,6 @@ interface Place {
   lat: number;
   lng: number;
 }
-
-// Names to generate realistic-looking data
-const HOSPITAL_NAMES = ["City General", "Memorial Health", "St. Mary's", "Community Medical", "University Hospital"];
-const CLINIC_NAMES = ["Family Care", "Wellness Center", "Urgent Care", "Pediatric Associates", "Downtown Clinic"];
-const PHARMACY_NAMES = ["HealthPlus", "MediCare Rx", "City Drugs", "Wellness Pharmacy", "24/7 Pharma"];
 
 export default function DoctorsPage() {
   const [selected, setSelected] = useState<Category>("hospital");
@@ -39,61 +35,83 @@ export default function DoctorsPage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        setLocation({ lat: latitude, lng: longitude });
-        generatePlaces(latitude, longitude);
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
         setLoading(false);
       },
       (err) => {
-        setError("Unable to retrieve your location. Showing demo data.");
-        // Fallback to a default location (e.g., New York)
-        const defaultLat = 40.7128;
-        const defaultLng = -74.0060;
-        setLocation({ lat: defaultLat, lng: defaultLng });
-        generatePlaces(defaultLat, defaultLng);
+        setError("Unable to retrieve your location.");
+        // Fallback to New York
+        setLocation({ lat: 40.7128, lng: -74.0060 });
         setLoading(false);
       }
     );
   }, []);
 
-  const generatePlaces = (lat: number, lng: number) => {
-    const newPlaces: Place[] = [];
-    const types: Category[] = ["hospital", "clinic", "pharmacy"];
+  useEffect(() => {
+    if (!location) return;
 
-    types.forEach(type => {
-      const count = 3 + Math.floor(Math.random() * 3); // 3-5 places per type
-      const names = type === "hospital" ? HOSPITAL_NAMES : type === "clinic" ? CLINIC_NAMES : PHARMACY_NAMES;
+    const fetchPlaces = async () => {
+      try {
+        const token = process.env.NEXT_PUBLIC_LOCATIONIQ_TOKEN;
+        if (!token) {
+          console.error("LocationIQ API token not found.");
+          setPlaces([]);
+          return;
+        }
 
-      for (let i = 0; i < count; i++) {
-        // Random offset from user location (approx 1-5km)
-        const latOffset = (Math.random() - 0.5) * 0.04;
-        const lngOffset = (Math.random() - 0.5) * 0.04;
+        // LocationIQ Nearby API
+        const url = `https://us1.locationiq.com/v1/nearby.php?key=${token}&lat=${location.lat}&lon=${location.lng}&tag=${selected}&radius=5000&format=json`;
 
-        newPlaces.push({
-          id: `${type}-${i}`,
-          name: `${names[i % names.length]} ${type === "hospital" ? "" : type === "clinic" ? "" : ""}`,
-          vicinity: `${Math.floor(Math.random() * 100)} Main St, Sector ${Math.floor(Math.random() * 10)}`,
-          type: type,
-          distance: `${(Math.random() * 5).toFixed(1)} km`,
-          rating: 4 + Math.random(),
-          lat: lat + latOffset,
-          lng: lng + lngOffset
-        });
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch places");
+
+        const data = await res.json();
+
+        const mappedPlaces: Place[] = data.map((place: any) => ({
+          id: place.place_id,
+          name: place.name,
+          vicinity: place.display_name.split(",")[0] + ", " + place.display_name.split(",")[1], // Simple address
+          type: selected,
+          distance: `${(place.distance / 1000).toFixed(1)} km`,
+          rating: 4 + Math.random(), // Mock rating as LocationIQ doesn't provide it in free tier often
+          lat: parseFloat(place.lat),
+          lng: parseFloat(place.lon)
+        }));
+
+        setPlaces(mappedPlaces.slice(0, 9));
+      } catch (err) {
+        console.error(err);
+        // Fallback or empty state
+        setPlaces([]);
       }
-    });
-    setPlaces(newPlaces);
-  };
+    };
 
-  const filtered = useMemo(
-    () => places.filter((p) => p.type === selected),
-    [selected, places]
-  );
+    fetchPlaces();
+  }, [location, selected]);
 
   const categories: { label: string; value: Category }[] = [
     { label: "Hospitals", value: "hospital" },
     { label: "Clinics", value: "clinic" },
     { label: "Pharmacies", value: "pharmacy" }
   ];
+
+  const mapMarkers = useMemo(() => places.map(p => ({
+    id: p.id,
+    position: [p.lat, p.lng] as [number, number],
+    title: p.name,
+    description: p.vicinity
+  })), [places]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -121,79 +139,29 @@ export default function DoctorsPage() {
         </div>
 
         {/* Map Interface */}
-        <div className="relative h-[400px] w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-inner group">
-          {/* Map Background (Abstract) */}
-          <div className="absolute inset-0 bg-[#0f172a]">
-            {/* Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
-
-            {/* Radar Effect */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
-          </div>
-
-          {loading ? (
+        <div className="relative h-[400px] w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-inner">
+          {location ? (
+            <Map
+              center={[location.lat, location.lng]}
+              zoom={13}
+              markers={mapMarkers}
+              className="z-0"
+            />
+          ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <p className="text-blue-400 animate-pulse">Locating you...</p>
             </div>
-          ) : (
-            <>
-              {/* User Location */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                <div className="relative">
-                  <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
-                  <div className="absolute inset-0 w-full h-full bg-blue-500 rounded-full animate-ping opacity-75" />
-                </div>
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900/80 px-2 py-1 rounded text-[10px] text-white whitespace-nowrap border border-slate-700">
-                  You are here
-                </div>
-              </div>
-
-              {/* Places Markers */}
-              {filtered.map((place) => {
-                // Calculate relative position for demo purposes (clamped to container)
-                // In a real map, we'd project lat/lng to pixels.
-                // Here we just use the offset we generated.
-                if (!location) return null;
-
-                const latDiff = (place.lat - location.lat) * 2000; // Scale factor
-                const lngDiff = (place.lng - location.lng) * 2000;
-
-                // Clamp to keep inside view roughly
-                const x = 50 + Math.max(-45, Math.min(45, lngDiff));
-                const y = 50 - Math.max(-45, Math.min(45, latDiff)); // Invert Y for map
-
-                return (
-                  <motion.div
-                    key={place.id}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="absolute z-10 cursor-pointer group/marker"
-                    style={{ left: `${x}%`, top: `${y}%` }}
-                  >
-                    <MapPin className={`w-8 h-8 ${place.type === 'hospital' ? 'text-red-500' :
-                      place.type === 'clinic' ? 'text-emerald-500' : 'text-orange-500'
-                      } drop-shadow-lg transform -translate-x-1/2 -translate-y-full hover:scale-110 transition-transform`} />
-
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/marker:block bg-slate-900 text-white text-xs p-2 rounded border border-slate-700 whitespace-nowrap z-30">
-                      <p className="font-bold">{place.name}</p>
-                      <p className="text-slate-400">{place.distance}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </>
           )}
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((place) => (
+        {places.map((place) => (
           <motion.div
             key={place.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-4 hover:bg-white/5 transition-colors border border-white/5"
+            className="glass-card p-4 hover:bg-white/5 transition-colors border border-white/5 cursor-pointer"
           >
             <div className="flex justify-between items-start mb-2">
               <div className="p-2 rounded-lg bg-slate-800">
@@ -222,6 +190,11 @@ export default function DoctorsPage() {
             </div>
           </motion.div>
         ))}
+        {places.length === 0 && !loading && (
+          <div className="col-span-full text-center py-10 text-slate-500">
+            No {selected}s found nearby.
+          </div>
+        )}
       </div>
     </div>
   );

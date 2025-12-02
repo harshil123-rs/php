@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,36 +12,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      // Return a simulated response if API key is missing, for demo purposes
-      // or return a specific error code that the frontend can handle.
-      // Let's return a friendly message.
+    if (!process.env.GOOGLE_API_KEY) {
       return NextResponse.json({
-        reply: "I'm sorry, but I can't connect to my brain right now (OpenAI API Key is missing). Please check the system configuration.",
+        reply: "I'm sorry, but I can't connect to my brain right now (Google API Key is missing). Please check the system configuration.",
       });
     }
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful health assistant.",
-        },
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const chat = model.startChat({
+      history: [
         {
           role: "user",
-          content: message,
+          parts: [{ text: "You are a helpful health assistant. Keep answers concise and friendly." }],
+        },
+        {
+          role: "model",
+          parts: [{ text: "Understood. I am ready to help with health-related questions." }],
         },
       ],
     });
 
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    const text = response.text();
+
     return NextResponse.json({
-      reply: response.choices[0].message.content,
+      reply: text,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("AI error:", err);
     return NextResponse.json(
-      { error: "AI service error" },
+      { error: "AI service error: " + (err.message || "Unknown") },
       { status: 500 }
     );
   }

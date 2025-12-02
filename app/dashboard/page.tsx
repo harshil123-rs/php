@@ -217,7 +217,7 @@ export default function DashboardHome() {
                 <div>
                   <p className="font-medium text-slate-200">{record.filename}</p>
                   <p className="text-xs text-slate-400">
-                    {record.type} • {new Date(record.createdAt).toLocaleDateString()}
+                    {record.type} • {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'Unknown Date'}
                   </p>
                 </div>
               </div>

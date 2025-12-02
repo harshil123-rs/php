@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
-import { GoogleMapsProvider } from "@/components/GoogleMapsProvider";
+
 
 export default function DashboardLayout({
   children

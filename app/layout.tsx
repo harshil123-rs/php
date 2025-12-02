@@ -1,6 +1,6 @@
 import "@/app/globals.css";
 import { ReactNode } from "react";
-import { GoogleMapsProvider } from "@/components/GoogleMapsProvider";
+
 
 export const metadata = {
   title: "HealthVault",
@@ -9,12 +9,10 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <GoogleMapsProvider>
-      <html lang="en" className="dark">
-        <body className="bg-background text-foreground antialiased">
-          {children}
-        </body>
-      </html>
-    </GoogleMapsProvider>
+    <html lang="en" className="dark">
+      <body className="bg-background text-foreground antialiased">
+        {children}
+      </body>
+    </html>
   );
 }

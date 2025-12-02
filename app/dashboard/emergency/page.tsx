@@ -1,33 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import Map from "@/components/ui/map";
 
 const emergencyContacts = [
   { name: "Primary Care", phone: "+1 555-202-1111" },
   { name: "Emergency Contact", phone: "+1 555-808-9900" },
   { name: "Nearest Hospital", phone: "+1 555-444-2211" }
-];
-
-const nearbyHospitals = [
-  {
-    name: "CityCare Trauma Center",
-    distance: "1.2 km",
-    address: "Ring Road, Sector 4",
-    travelTime: "5 min drive"
-  },
-  {
-    name: "Green Valley Emergency Wing",
-    distance: "2.0 km",
-    address: "Lake View Avenue",
-    travelTime: "8 min drive"
-  },
-  {
-    name: "Metro Heart Institute",
-    distance: "3.1 km",
-    address: "Metro Station Complex",
-    travelTime: "12 min drive"
-  }
 ];
 
 export default function EmergencyPage() {
@@ -37,6 +18,8 @@ export default function EmergencyPage() {
     allergies: "N/A",
     conditions: "N/A"
   });
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [hospitals, setHospitals] = useState<any[]>([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -57,12 +40,69 @@ export default function EmergencyPage() {
     loadProfile();
   }, []);
 
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      },
+      () => {
+        // Fallback
+        setLocation({ lat: 40.7128, lng: -74.0060 });
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!location) return;
+
+    const fetchHospitals = async () => {
+      try {
+        const token = process.env.NEXT_PUBLIC_LOCATIONIQ_TOKEN;
+        if (!token) return;
+
+        const url = `https://us1.locationiq.com/v1/nearby.php?key=${token}&lat=${location.lat}&lon=${location.lng}&tag=hospital&radius=5000&format=json`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch hospitals");
+
+        const data = await res.json();
+
+        const mappedHospitals = data.slice(0, 3).map((h: any) => ({
+          name: h.name,
+          distance: `${(h.distance / 1000).toFixed(1)} km`,
+          address: h.display_name.split(",")[0] + ", " + h.display_name.split(",")[1],
+          travelTime: `${Math.ceil((h.distance / 1000) * 3)} min drive`,
+          lat: parseFloat(h.lat),
+          lng: parseFloat(h.lon)
+        }));
+
+        setHospitals(mappedHospitals);
+      } catch (err) {
+        console.error(err);
+        setHospitals([]);
+      }
+    };
+
+    fetchHospitals();
+  }, [location]);
+
+  const mapMarkers = useMemo(() => hospitals.map(h => ({
+    id: h.name,
+    position: [h.lat, h.lng] as [number, number],
+    title: h.name,
+    description: h.address
+  })), [hospitals]);
+
   return (
     <div className="space-y-6">
       <div>
         <p className="page-title">Emergency Access</p>
         <p className="page-subtitle">
-          Demo view showing SOS, your critical info, and nearby hospitals (mock data).
+          SOS mode, critical info, and real-time nearby hospital locator.
         </p>
       </div>
 
@@ -131,36 +171,25 @@ export default function EmergencyPage() {
           </div>
         </div>
 
-        {/* Fake mini-map + hospital list */}
+        {/* Real LocationIQ Map + hospital list */}
         <div>
-          <p className="font-semibold mb-3">Nearest hospitals (demo)</p>
+          <p className="font-semibold mb-3">Nearest hospitals</p>
           <div className="rounded-xl overflow-hidden border border-card-border/60 bg-slate-950">
-            <div className="relative h-64 w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.9)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.9)_1px,transparent_1px)] bg-[size:32px_32px] opacity-40" />
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1">
-                <div className="h-8 w-8 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <div className="relative h-64 w-full">
+              {location ? (
+                <Map
+                  center={[location.lat, location.lng]}
+                  zoom={13}
+                  markers={mapMarkers}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
                 </div>
-                <span className="text-xs text-muted">You</span>
-              </div>
-              {nearbyHospitals.map((h, idx) => (
-                <div
-                  key={h.name}
-                  className="absolute flex flex-col items-center text-[10px]"
-                  style={{
-                    left: `${25 + idx * 20}%`,
-                    top: `${35 + (idx % 2) * 20}%`
-                  }}
-                >
-                  <div className="h-4 w-4 rounded-full bg-red-400 border border-red-200 shadow-lg" />
-                  <span className="mt-1 px-1.5 py-0.5 rounded-full bg-slate-900/80 whitespace-nowrap">
-                    🏥 {h.name.split(" ")[0]}
-                  </span>
-                </div>
-              ))}
+              )}
             </div>
             <div className="divide-y divide-card-border/60">
-              {nearbyHospitals.map((h) => (
+              {hospitals.length > 0 ? hospitals.map((h) => (
                 <div key={h.name} className="p-3 text-sm flex justify-between items-center">
                   <div>
                     <p className="font-medium">{h.name}</p>
@@ -171,7 +200,11 @@ export default function EmergencyPage() {
                     <p>{h.travelTime}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="p-4 text-center text-sm text-muted">
+                  Searching for nearby hospitals...
+                </div>
+              )}
             </div>
           </div>
         </div>

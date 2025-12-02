@@ -6,6 +6,7 @@ create table profiles (
   full_name text,
   avatar_url text,
   website text,
+  role text default 'patient' check (role in ('patient', 'doctor')),
 
   constraint username_length check (char_length(username) >= 3)
 );

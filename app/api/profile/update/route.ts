@@ -1,42 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
+  const supabase = createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const formData = await req.formData();
+    const body = await req.json();
 
-    const fullName = formData.get("fullName");
-    const age = formData.get("age");
-    const email = formData.get("email");
+    // Map frontend fields to DB columns
+    // Frontend: name, age, bloodGroup, allergies, conditions, avatarKey
+    // DB: full_name, age, blood_group, allergies, conditions, avatar_url
 
-    // File upload
-    const file = formData.get("photo") as File | null;
-    let photoUrl = null;
+    const updates = {
+      full_name: body.name,
+      age: body.age,
+      blood_group: body.bloodGroup,
+      allergies: body.allergies,
+      conditions: body.conditions,
+      avatar_url: body.avatarKey, // Using avatarKey as avatar_url in DB
+      updated_at: new Date().toISOString(),
+    };
 
-    if (file) {
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+    const { error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", user.id);
 
-      const uploadDir = path.join(process.cwd(), "uploads/profile");
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-      const filename = `${Date.now()}-${file.name}`;
-      const filePath = path.join(uploadDir, filename);
-
-      fs.writeFileSync(filePath, buffer);
-
-      photoUrl = `/uploads/profile/${filename}`;
+    if (error) {
+      console.error("Profile update error:", error);
+      return NextResponse.json({ message: error.message }, { status: 500 });
     }
 
-    // TODO: Save user info & photoUrl to MongoDB here
-
-    return NextResponse.json({
-      success: true,
-      photoUrl,
-    });
-  } catch (error) {
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
     console.error("Profile update error:", error);
-    return NextResponse.json({ success: false }, { status: 500 });
+    return NextResponse.json({ message: error.message || "Internal Error" }, { status: 500 });
   }
 }

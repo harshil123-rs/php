@@ -4,17 +4,48 @@ import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, ScanLine } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, ScanLine, XCircle, Info, Thermometer, Calendar, Pill } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface VerificationResult {
-  verified: boolean;
-  name: string;
-  manufacturer: string;
-  expiry: string;
-  batchNumber: string;
-  safetyScore: number;
-  warnings: string[];
+  identity: {
+    medicine_name: string;
+    brand_name: string;
+    generic_name: string;
+    manufacturer: string;
+    batch_number: string;
+  };
+  authenticity: {
+    status: "Valid" | "Invalid" | "Suspicious";
+    reason: string;
+    counterfeit_probability: "Low" | "Medium" | "High";
+  };
+  composition: {
+    ingredients: string;
+  };
+  usage: {
+    purpose: string;
+    standard_dosage: string;
+    age_restrictions: string;
+  };
+  safety: {
+    side_effects: string;
+    drug_interactions: string;
+    allergy_warning: string;
+    pregnancy_safety: string;
+  };
+  storage: {
+    instructions: string;
+  };
+  expiry: {
+    manufacturing_date: string;
+    expiry_date: string;
+    status: "Safe" | "Near Expiry" | "Expired" | "Unknown";
+  };
+  summary: {
+    verdict: "Safe" | "Unsafe" | "Caution";
+    message: string;
+  };
 }
 
 export default function MedicinePage() {
@@ -43,35 +74,22 @@ export default function MedicinePage() {
     setLoading(true);
     setScanning(true);
 
-    // Simulate realistic scanning phases
-    // Phase 1: Uploading & OCR
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Phase 2: Database Lookup
-    // In a real app, this would call an API. Here we simulate a smart response.
-    // We'll generate data based on the file name or random realistic data.
-
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const isSafe = Math.random() > 0.1; // 90% chance of being safe
-      const today = new Date();
-      const expiryDate = new Date(today.setFullYear(today.getFullYear() + 1 + Math.floor(Math.random() * 2)));
+      const res = await fetch("/api/medicine/verify", {
+        method: "POST",
+        body: formData
+      });
 
-      const mockResult: VerificationResult = {
-        verified: isSafe,
-        name: "Amoxicillin 500mg",
-        manufacturer: "PharmaCorp Ltd.",
-        expiry: expiryDate.toLocaleDateString(),
-        batchNumber: `BATCH-${Math.floor(Math.random() * 100000)}`,
-        safetyScore: isSafe ? 95 + Math.floor(Math.random() * 5) : 45,
-        warnings: isSafe
-          ? ["Take with food", "Complete the full course"]
-          : ["Potential counterfeit detected", "Batch number not found in registry"]
-      };
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Verification failed");
+      }
 
-      setResult(mockResult);
+      const data = await res.json();
+      setResult(data);
 
       // Award points
       try {
@@ -85,15 +103,24 @@ export default function MedicinePage() {
       }
 
     } catch (err: any) {
-      setError("Failed to verify medicine. Please try again.");
+      setError(err.message || "Failed to verify medicine. Please try again.");
     } finally {
       setLoading(false);
       setScanning(false);
     }
   };
 
+  const getStatusColor = (verdict: string) => {
+    switch (verdict) {
+      case "Safe": return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+      case "Caution": return "text-yellow-400 bg-yellow-500/10 border-yellow-500/20";
+      case "Unsafe": return "text-red-400 bg-red-500/10 border-red-500/20";
+      default: return "text-slate-400 bg-slate-500/10 border-slate-500/20";
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-10">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
           Medicine Verification
@@ -155,16 +182,16 @@ export default function MedicinePage() {
           )}
         </div>
 
-        <div className="relative">
+        <div className="space-y-6">
           {/* Preview Area */}
-          <div className="glass-card p-2 min-h-[400px] flex items-center justify-center relative overflow-hidden">
+          <div className="glass-card p-2 min-h-[300px] flex items-center justify-center relative overflow-hidden">
             {preview ? (
               <>
                 <Image
                   src={preview}
                   alt="Preview"
                   fill
-                  className="object-cover rounded-lg opacity-80"
+                  className="object-contain rounded-lg"
                 />
                 {scanning && (
                   <motion.div
@@ -194,46 +221,105 @@ export default function MedicinePage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute -bottom-6 left-4 right-4 glass-card p-6 border-t-4 border-t-emerald-500 shadow-2xl"
+              className="space-y-4"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-xl font-bold text-white">{result.name}</h3>
-                    {result.verified && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+              {/* Summary Card */}
+              <div className={`glass-card p-6 border-l-4 ${result.summary.verdict === "Safe" ? "border-l-emerald-500" :
+                  result.summary.verdict === "Caution" ? "border-l-yellow-500" : "border-l-red-500"
+                }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-xl font-bold text-white">{result.summary.message}</h2>
+                  {result.summary.verdict === "Safe" ? <CheckCircle2 className="w-8 h-8 text-emerald-400" /> :
+                    result.summary.verdict === "Caution" ? <AlertTriangle className="w-8 h-8 text-yellow-400" /> :
+                      <XCircle className="w-8 h-8 text-red-400" />}
+                </div>
+                <p className="text-sm text-slate-400">{result.authenticity.reason}</p>
+              </div>
+
+              {/* Identity & Authenticity */}
+              <div className="glass-card p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Pill className="w-5 h-5 text-blue-400" /> Medicine Identity
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Name</p>
+                    <p className="text-white font-medium">{result.identity.medicine_name}</p>
                   </div>
-                  <p className="text-sm text-slate-400">{result.manufacturer}</p>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Generic</p>
+                    <p className="text-slate-300">{result.identity.generic_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Manufacturer</p>
+                    <p className="text-slate-300">{result.identity.manufacturer}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Batch No.</p>
+                    <p className="text-slate-300 font-mono">{result.identity.batch_number}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider">Safety Score</p>
-                  <p className={`text-2xl font-bold ${result.safetyScore > 80 ? 'text-emerald-400' : 'text-yellow-400'}`}>
-                    {result.safetyScore}/100
-                  </p>
+                <div className="pt-4 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Authenticity Status</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${result.authenticity.status === "Valid" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                      }`}>
+                      {result.authenticity.status}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-slate-500">Batch No.</p>
-                  <p className="font-mono text-sm text-slate-300">{result.batchNumber}</p>
-                </div>
-                <div className="bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-slate-500">Expiry Date</p>
-                  <p className="font-mono text-sm text-slate-300">{result.expiry}</p>
+              {/* Usage & Safety */}
+              <div className="glass-card p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Info className="w-5 h-5 text-purple-400" /> Usage & Safety
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Purpose</p>
+                    <p className="text-slate-300 text-sm">{result.usage.purpose}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase">Dosage</p>
+                      <p className="text-slate-300 text-sm">{result.usage.standard_dosage}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase">Age Limit</p>
+                      <p className="text-slate-300 text-sm">{result.usage.age_restrictions}</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                    <p className="text-xs text-red-400 uppercase mb-1 font-bold">Safety Warnings</p>
+                    <p className="text-xs text-slate-300">Side Effects: {result.safety.side_effects}</p>
+                    <p className="text-xs text-slate-300 mt-1">Allergy: {result.safety.allergy_warning}</p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs text-slate-500 mb-2 uppercase">Recommendations</p>
-                <ul className="space-y-1">
-                  {result.warnings.map((w, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      {w}
-                    </li>
-                  ))}
-                </ul>
+              {/* Expiry & Storage */}
+              <div className="glass-card p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-orange-400" /> Expiry & Storage
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Expiry Date</p>
+                    <p className={`font-mono font-bold ${result.expiry.status === "Expired" ? "text-red-400" :
+                        result.expiry.status === "Near Expiry" ? "text-yellow-400" : "text-emerald-400"
+                      }`}>
+                      {result.expiry.expiry_date}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">Status: {result.expiry.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">Storage</p>
+                    <p className="text-sm text-slate-300">{result.storage.instructions}</p>
+                  </div>
+                </div>
               </div>
+
             </motion.div>
           )}
         </div>

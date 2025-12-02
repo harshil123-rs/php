@@ -59,6 +59,17 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "/auth/login";
+          }}
+          className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors mt-4 border border-blue-500/30 w-full text-blue-400 hover:bg-blue-500/10 text-left"
+        >
+          <User className="h-4 w-4" />
+          <span>Doctor Portal</span>
+        </button>
       </nav>
     </aside>
   );

@@ -58,13 +58,32 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect dashboard routes
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+  // Protect dashboard and doctor routes
+  if ((request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/doctor')) && !user) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
   // Redirect logged-in users away from auth pages
   if ((request.nextUrl.pathname.startsWith('/auth/login') || request.nextUrl.pathname.startsWith('/auth/register')) && user) {
+    // We can't easily check the role here without a DB call which is expensive in middleware.
+    // However, we can check if they have a doctor specific cookie or just default to dashboard
+    // and let the dashboard redirect them if needed. 
+    // OR, we can just let them go to dashboard and if they are a doctor, the sidebar link will take them to portal.
+    // BUT, the user asked for "same doctor portal display on login page".
+    // Let's rely on the client-side redirect from the login page for the initial flow.
+    // For returning users, we might want to be smarter.
+
+    // Ideally we would store the role in the session metadata or a cookie.
+    // For now, let's keep it simple: redirect to /dashboard. 
+    // If they are a doctor, they can click "Doctor Portal".
+    // Wait, the user said "doctor can directly access... by any authentication".
+
+    // Let's try to fetch the profile role from the DB in middleware? No, that's bad practice usually.
+    // Better approach: The login page handles the initial redirect.
+    // If they are already logged in and hit /auth/login, we send them to /dashboard.
+    // From /dashboard, if they are a doctor, they see the link.
+    // This seems acceptable for now unless we want to add a custom claim to the JWT.
+
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
