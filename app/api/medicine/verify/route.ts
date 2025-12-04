@@ -4,24 +4,52 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    const language = formData.get("language") as string || "English";
+    const files = formData.getAll("file") as File[];
 
-    if (!file) {
-      return NextResponse.json({ error: "File missing" }, { status: 400 });
+    if (!files || files.length === 0) {
+      return NextResponse.json({ error: "Files missing" }, { status: 400 });
     }
 
     if (!process.env.GOOGLE_API_KEY) {
       return NextResponse.json({ error: "API Key missing" }, { status: 500 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const imageParts = await Promise.all(
+      files.map(async (file) => {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        return {
+          inlineData: {
+            data: buffer.toString("base64"),
+            mimeType: file.type,
+          },
+        };
+      })
+    );
 
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `Analyze this medicine image (pill bottle, blister pack, or box) and extract detailed information.
-    Return a valid JSON object with the following structure:
+    // Helper to try multiple models
+    const generateWithFallback = async (models: string[], prompt: string, imageParts: any[]) => {
+      for (const modelName of models) {
+        try {
+          console.log(`Attempting verification with model: ${modelName}`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent([prompt, ...imageParts]);
+          const response = await result.response;
+          return response;
+        } catch (error: any) {
+          console.warn(`Model ${modelName} failed:`, error.message);
+          // Continue to next model
+        }
+      }
+      throw new Error("All AI models failed to process the image.");
+    };
+
+    const prompt = `Analyze these medicine images (pill bottle, blister pack, or box) and extract detailed information.
+    Return a valid JSON object with the following structure.
+    IMPORTANT: Translate all string values to ${language}.
 
     {
       "identity": {
@@ -67,15 +95,12 @@ export async function POST(req: NextRequest) {
     Do not include markdown formatting (like \`\`\`json). Just return the raw JSON string.
     If specific details are not visible in the image, use "Not visible" or reasonable inference based on the identified medicine type (e.g., for standard dosage/usage of a known drug).`;
 
-    const imagePart = {
-      inlineData: {
-        data: buffer.toString("base64"),
-        mimeType: file.type,
-      },
-    };
-
-    const result = await model.generateContent([prompt, imagePart]);
-    const response = await result.response;
+    // Try user-requested 2.5, then fallbacks
+    const response = await generateWithFallback(
+      ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro"],
+      prompt,
+      imageParts
+    );
     let text = response.text();
 
     // Clean up potential markdown code blocks

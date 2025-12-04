@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, ShieldCheck, ShieldAlert, FileText, User, LogOut } from "lucide-react";
+import { Download, ShieldCheck, ShieldAlert, FileText, User, LogOut, Filter } from "lucide-react";
 
 interface DoctorRecord {
     id: string;
+    user_id?: string; // Add user_id
     title: string;
     created_at: string;
     metadata: {
@@ -18,23 +19,33 @@ interface DoctorRecord {
     };
 }
 
+interface Patient {
+    id: string;
+    full_name: string;
+    email: string;
+}
+
 export default function DoctorDashboard() {
     const [records, setRecords] = useState<DoctorRecord[]>([]);
+    const [patients, setPatients] = useState<Patient[]>([]);
+    const [selectedPatient, setSelectedPatient] = useState("");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchRecords = async () => {
+        const fetchData = async () => {
             try {
-                // We can reuse the main records API if RLS allows doctors to see all
-                // Or create a specific one. Let's try the main one first, assuming RLS update.
-                // Actually, let's use a dedicated endpoint to be sure we get what we want.
-                // For now, I'll fetch from the same CSV endpoint logic but as JSON? 
-                // No, let's just use the existing records endpoint and see if it works (it won't until RLS is fixed).
-                // I'll assume I will fix RLS.
-                const res = await fetch("/api/records");
-                if (res.ok) {
-                    const data = await res.json();
+                // Fetch Records
+                const recordsRes = await fetch("/api/records");
+                if (recordsRes.ok) {
+                    const data = await recordsRes.json();
                     setRecords(data.records);
+                }
+
+                // Fetch Patients
+                const patientsRes = await fetch("/api/doctor/patients");
+                if (patientsRes.ok) {
+                    const data = await patientsRes.json();
+                    setPatients(data.patients);
                 }
             } catch (err) {
                 console.error(err);
@@ -42,12 +53,19 @@ export default function DoctorDashboard() {
                 setLoading(false);
             }
         };
-        fetchRecords();
+        fetchData();
     }, []);
 
     const handleDownloadCsv = () => {
         window.location.href = "/api/doctor/export-csv";
     };
+
+    const filteredRecords = selectedPatient
+        ? records.filter(rec => rec.metadata?.patient_name === patients.find(p => p.id === selectedPatient)?.full_name)
+        // Note: Linking by name is fragile. Ideally records should have patient_id. 
+        // Since we don't have patient_id on all records yet (only new ones might), we'll try to match by name or if we add patient_id to records.
+        // For now, let's assume metadata.patient_name matches.
+        : records;
 
     return (
         <div className="space-y-6">
@@ -80,6 +98,22 @@ export default function DoctorDashboard() {
                 </div>
             </div>
 
+            {/* Filters */}
+            <div className="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg border border-slate-800">
+                <Filter className="w-4 h-4 text-slate-400" />
+                <span className="text-sm text-slate-400">Filter by Patient:</span>
+                <select
+                    className="h-9 bg-slate-950 border border-slate-800 rounded-md px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+                    value={selectedPatient}
+                    onChange={(e) => setSelectedPatient(e.target.value)}
+                >
+                    <option value="">All Patients</option>
+                    {patients.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                    ))}
+                </select>
+            </div>
+
             <div className="glass-card overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -95,7 +129,7 @@ export default function DoctorDashboard() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
-                            {records.map((rec) => (
+                            {filteredRecords.map((rec) => (
                                 <tr key={rec.id} className="hover:bg-slate-800/30 transition-colors">
                                     <td className="px-6 py-4 font-medium text-white">
                                         {rec.metadata?.patient_name || "Unknown"}
@@ -130,6 +164,37 @@ export default function DoctorDashboard() {
                                             >
                                                 Preview
                                             </button>
+                                            <button
+                                                onClick={() => window.location.href = `/doctor/dashboard/analytics?recordId=${rec.id}`}
+                                                className="ml-2 text-xs text-purple-400 hover:text-purple-300 underline"
+                                            >
+                                                Analyze
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    let patient = null;
+
+                                                    // 1. Try exact user_id match (best)
+                                                    if (rec.user_id) {
+                                                        patient = patients.find(p => p.id === rec.user_id);
+                                                    }
+
+                                                    // 2. Try fuzzy name match
+                                                    if (!patient && rec.metadata?.patient_name) {
+                                                        const recordName = rec.metadata.patient_name.toLowerCase().trim();
+                                                        patient = patients.find(p => p.full_name.toLowerCase().trim() === recordName);
+                                                    }
+
+                                                    if (patient) {
+                                                        window.location.href = `/doctor/dashboard/prescriptions?patientId=${patient.id}`;
+                                                    } else {
+                                                        alert(`Could not find a registered patient profile for "${rec.metadata?.patient_name || 'Unknown'}".\n\nPlease ensure the patient is registered in the system.`);
+                                                    }
+                                                }}
+                                                className="ml-2 text-xs text-emerald-400 hover:text-emerald-300 underline"
+                                            >
+                                                Prescribe
+                                            </button>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-500">
@@ -137,7 +202,7 @@ export default function DoctorDashboard() {
                                     </td>
                                 </tr>
                             ))}
-                            {records.length === 0 && !loading && (
+                            {filteredRecords.length === 0 && !loading && (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                         No records found.

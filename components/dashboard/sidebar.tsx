@@ -11,7 +11,8 @@ import {
   Star,
   MapPin,
   Siren,
-  User
+  User,
+  Calendar
 } from "lucide-react";
 
 export const dashboardNavLinks = [
@@ -20,6 +21,7 @@ export const dashboardNavLinks = [
   { href: "/dashboard/medicine", label: "Medicine", icon: Pill },
   { href: "/dashboard/ai", label: "AI Assistant", icon: Brain },
   { href: "/dashboard/achievements", label: "Achievements", icon: Star },
+  { href: "/dashboard/appointments", label: "Book Appointment", icon: Calendar },
   { href: "/dashboard/doctors", label: "Doctors", icon: MapPin },
   { href: "/dashboard/emergency", label: "Emergency", icon: Siren },
   { href: "/dashboard/profile", label: "Profile", icon: User }

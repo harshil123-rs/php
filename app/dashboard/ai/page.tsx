@@ -7,6 +7,7 @@ import { VoiceInput } from "@/components/ui/voice-input";
 import { Bot, User, Sparkles, Send, Mic } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface Message {
   role: "user" | "assistant";
@@ -14,6 +15,7 @@ interface Message {
 }
 
 export default function AIPage() {
+  const { language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -54,7 +56,7 @@ export default function AIPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: textToSend }),
+        body: JSON.stringify({ message: textToSend, language }),
       });
 
       if (!res.ok) {

@@ -1,5 +1,6 @@
 import "@/app/globals.css";
 import { ReactNode } from "react";
+import { LanguageProvider } from "@/components/providers/language-provider";
 
 
 export const metadata = {
@@ -11,7 +12,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark">
       <body className="bg-background text-foreground antialiased">
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

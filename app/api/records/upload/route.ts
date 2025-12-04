@@ -14,6 +14,8 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
   const type = (formData.get("type") as string | null) || "Other";
 
+  const language = (formData.get("language") as string | null) || "English";
+
   if (!file) {
     return NextResponse.json({ message: "File missing" }, { status: 400 });
   }
@@ -57,7 +59,9 @@ export async function POST(req: NextRequest) {
       const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      const prompt = `Analyze this medical record image. Extract the following fields and return them as a valid JSON object:
+      const prompt = `Analyze this medical record image. Extract the following fields and return them as a valid JSON object.
+      IMPORTANT: Translate all string values to ${language}.
+
       - patient_name (string)
       - age (string, e.g. "34 years")
       - blood_group (string)

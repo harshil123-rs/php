@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { FileText, ShieldCheck, ShieldAlert, Activity, User, Calendar } from "lucide-react";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface RecordItem {
   id: string;
@@ -25,6 +26,7 @@ interface RecordItem {
 const recordTypes = ["Lab Report", "Prescription", "Imaging", "Insurance", "Other"];
 
 export default function RecordsPage() {
+  const { language } = useLanguage();
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [recordType, setRecordType] = useState(recordTypes[0]);
@@ -69,6 +71,7 @@ export default function RecordsPage() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("type", recordType);
+      formData.append("language", language);
 
       const res = await fetch("/api/records/upload", {
         method: "POST",

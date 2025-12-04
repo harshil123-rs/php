@@ -4,7 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, ScanLine, XCircle, Info, Thermometer, Calendar, Pill } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle, ShieldCheck, ShieldAlert, FileText, Info, AlertTriangle, ScanLine, Loader2, CheckCircle2, XCircle, Pill, Calendar } from "lucide-react";
+import { useLanguage } from "@/components/providers/language-provider";
 import { motion } from "framer-motion";
 
 interface VerificationResult {
@@ -49,34 +50,41 @@ interface VerificationResult {
 }
 
 export default function MedicinePage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string>("");
+  const { language } = useLanguage();
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [error, setError] = useState("");
-  const [scanning, setScanning] = useState(false);
+  const [step, setStep] = useState<"upload" | "processing" | "result">("upload");
 
-  const handleFileChange = (files: FileList | null) => {
-    const f = files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+  const handleFileChange = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+
+    const newFiles = Array.from(fileList);
+    setFiles(newFiles);
+
+    const newPreviews = newFiles.map(f => URL.createObjectURL(f));
+    setPreviews(newPreviews);
+
     setResult(null);
     setError("");
+
+    // Auto-start verification
+    await handleVerify(newFiles);
   };
 
-  const handleVerify = async () => {
-    if (!file) {
-      setError("Please select a photo of the medicine first");
-      return;
-    }
+  const handleVerify = async (selectedFiles: File[]) => {
     setError("");
     setLoading(true);
-    setScanning(true);
+    setStep("processing");
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      selectedFiles.forEach(file => {
+        formData.append("file", file);
+      });
+      formData.append("language", language);
 
       const res = await fetch("/api/medicine/verify", {
         method: "POST",
@@ -90,6 +98,7 @@ export default function MedicinePage() {
 
       const data = await res.json();
       setResult(data);
+      setStep("result");
 
       // Award points
       try {
@@ -104,226 +113,209 @@ export default function MedicinePage() {
 
     } catch (err: any) {
       setError(err.message || "Failed to verify medicine. Please try again.");
+      setStep("upload"); // Go back to upload on error
     } finally {
       setLoading(false);
-      setScanning(false);
     }
   };
 
-  const getStatusColor = (verdict: string) => {
-    switch (verdict) {
-      case "Safe": return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-      case "Caution": return "text-yellow-400 bg-yellow-500/10 border-yellow-500/20";
-      case "Unsafe": return "text-red-400 bg-red-500/10 border-red-500/20";
-      default: return "text-slate-400 bg-slate-500/10 border-slate-500/20";
-    }
+  const resetFlow = () => {
+    setFiles([]);
+    setPreviews([]);
+    setResult(null);
+    setStep("upload");
   };
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex flex-col gap-2">
+    <div className="space-y-8 pb-10 max-w-4xl mx-auto">
+      <div className="flex flex-col gap-2 text-center">
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
           Medicine Verification
         </h1>
         <p className="text-slate-400">
-          Upload a photo of any pill bottle or blister pack. Our AI checks authenticity, expiry, and recalls.
+          Upload photos of your medicine (front, back, label). Our AI checks authenticity, expiry, and recalls.
         </p>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="glass-card p-6 space-y-6 h-fit">
-          <div>
-            <h3 className="font-semibold text-lg mb-2">Upload Photo</h3>
-            <p className="text-sm text-slate-400 mb-4">
-              Ensure the label, batch number, and expiry date are visible.
-            </p>
-
-            <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-emerald-500/50 transition-colors cursor-pointer relative group">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e.target.files)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-              <div className="space-y-2">
-                <div className="w-12 h-12 rounded-full bg-slate-800 mx-auto flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
-                  <ScanLine className="w-6 h-6 text-slate-400 group-hover:text-emerald-400" />
-                </div>
-                <p className="text-sm font-medium text-slate-300">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-slate-500">PNG, JPG up to 10MB</p>
-              </div>
-            </div>
+      {/* Step 1: Upload Interface */}
+      {step === "upload" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-10 flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-700 hover:border-emerald-500/50 transition-colors relative group cursor-pointer min-h-[400px]"
+        >
+          <Input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => handleFileChange(e.target.files)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+          <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+            <ScanLine className="w-12 h-12 text-slate-400 group-hover:text-emerald-400" />
           </div>
-
-          <Button
-            onClick={handleVerify}
-            disabled={loading || !file}
-            className="w-full h-12 text-base bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Analyzing...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5" />
-                Verify Authenticity
-              </span>
-            )}
-          </Button>
-
+          <div className="space-y-2">
+            <h3 className="text-2xl font-semibold text-white">Upload Medicine Photos</h3>
+            <p className="text-slate-400 max-w-md mx-auto">
+              Select multiple photos for better accuracy. Drag and drop or click to browse.
+            </p>
+          </div>
           {error && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
-        </div>
+        </motion.div>
+      )}
 
-        <div className="space-y-6">
-          {/* Preview Area */}
-          <div className="glass-card p-2 min-h-[300px] flex items-center justify-center relative overflow-hidden">
-            {preview ? (
-              <>
-                <Image
-                  src={preview}
-                  alt="Preview"
-                  fill
-                  className="object-contain rounded-lg"
-                />
-                {scanning && (
-                  <motion.div
-                    className="absolute inset-0 bg-emerald-500/10 z-10"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <motion.div
-                      className="w-full h-1 bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.8)]"
-                      animate={{ top: ["0%", "100%", "0%"] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      style={{ position: "absolute" }}
-                    />
-                  </motion.div>
-                )}
-              </>
-            ) : (
-              <div className="text-center text-slate-500">
-                <ShieldCheck className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                <p>Preview will appear here</p>
+      {/* Step 2: Processing Interface */}
+      {step === "processing" && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="glass-card p-10 flex flex-col items-center justify-center min-h-[400px] space-y-8"
+        >
+          <div className="flex flex-wrap justify-center gap-4">
+            {previews.map((src, index) => (
+              <div key={index} className="relative w-48 h-48 rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
+                <Image src={src} alt={`Analyzing ${index + 1}`} fill className="object-cover opacity-50" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-full h-1 bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.8)] absolute animate-scan" />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/10 to-transparent animate-pulse" />
               </div>
-            )}
+            ))}
           </div>
 
-          {/* Results Overlay */}
-          {result && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
-            >
-              {/* Summary Card */}
-              <div className={`glass-card p-6 border-l-4 ${result.summary.verdict === "Safe" ? "border-l-emerald-500" :
-                  result.summary.verdict === "Caution" ? "border-l-yellow-500" : "border-l-red-500"
-                }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-bold text-white">{result.summary.message}</h2>
-                  {result.summary.verdict === "Safe" ? <CheckCircle2 className="w-8 h-8 text-emerald-400" /> :
-                    result.summary.verdict === "Caution" ? <AlertTriangle className="w-8 h-8 text-yellow-400" /> :
-                      <XCircle className="w-8 h-8 text-red-400" />}
-                </div>
-                <p className="text-sm text-slate-400">{result.authenticity.reason}</p>
-              </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-bold text-white flex items-center justify-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+              Analyzing {files.length} Image{files.length > 1 ? 's' : ''}...
+            </h3>
+            <p className="text-slate-400">Verifying authenticity, checking ingredients, and scanning for recalls.</p>
+          </div>
+        </motion.div>
+      )}
 
-              {/* Identity & Authenticity */}
-              <div className="glass-card p-6 space-y-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Pill className="w-5 h-5 text-blue-400" /> Medicine Identity
-                </h3>
+      {/* Step 3: Result Interface */}
+      {step === "result" && result && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <Button variant="ghost" onClick={resetFlow} className="mb-4 text-slate-400 hover:text-white">
+            ← Scan Another Medicine
+          </Button>
+
+          {/* Summary Card */}
+          <div className={`glass-card p-8 border-l-4 ${result.summary.verdict === "Safe" ? "border-l-emerald-500" :
+            result.summary.verdict === "Caution" ? "border-l-yellow-500" : "border-l-red-500"
+            }`}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-white">{result.summary.message}</h2>
+                <p className="text-slate-400 text-lg">{result.authenticity.reason}</p>
+              </div>
+              {result.summary.verdict === "Safe" ? <CheckCircle2 className="w-12 h-12 text-emerald-400 shrink-0" /> :
+                result.summary.verdict === "Caution" ? <AlertTriangle className="w-12 h-12 text-yellow-400 shrink-0" /> :
+                  <XCircle className="w-12 h-12 text-red-400 shrink-0" />}
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Identity & Authenticity */}
+            <div className="glass-card p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                <Pill className="w-5 h-5 text-blue-400" /> Medicine Identity
+              </h3>
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-slate-500 uppercase">Name</p>
-                    <p className="text-white font-medium">{result.identity.medicine_name}</p>
+                    <p className="text-white font-medium text-lg">{result.identity.medicine_name}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 uppercase">Generic</p>
                     <p className="text-slate-300">{result.identity.generic_name}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase">Manufacturer</p>
-                    <p className="text-slate-300">{result.identity.manufacturer}</p>
-                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Manufacturer</p>
+                  <p className="text-slate-300">{result.identity.manufacturer}</p>
+                </div>
+                <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg">
                   <div>
                     <p className="text-xs text-slate-500 uppercase">Batch No.</p>
                     <p className="text-slate-300 font-mono">{result.identity.batch_number}</p>
                   </div>
-                </div>
-                <div className="pt-4 border-t border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">Authenticity Status</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${result.authenticity.status === "Valid" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
-                      }`}>
-                      {result.authenticity.status}
-                    </span>
-                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${result.authenticity.status === "Valid" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                    }`}>
+                    {result.authenticity.status}
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {/* Usage & Safety */}
-              <div className="glass-card p-6 space-y-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Info className="w-5 h-5 text-purple-400" /> Usage & Safety
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase">Purpose</p>
-                    <p className="text-slate-300 text-sm">{result.usage.purpose}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase">Dosage</p>
-                      <p className="text-slate-300 text-sm">{result.usage.standard_dosage}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase">Age Limit</p>
-                      <p className="text-slate-300 text-sm">{result.usage.age_restrictions}</p>
-                    </div>
-                  </div>
-                  <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                    <p className="text-xs text-red-400 uppercase mb-1 font-bold">Safety Warnings</p>
-                    <p className="text-xs text-slate-300">Side Effects: {result.safety.side_effects}</p>
-                    <p className="text-xs text-slate-300 mt-1">Allergy: {result.safety.allergy_warning}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Expiry & Storage */}
-              <div className="glass-card p-6 space-y-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-orange-400" /> Expiry & Storage
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
+            {/* Expiry & Storage */}
+            <div className="glass-card p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                <Calendar className="w-5 h-5 text-orange-400" /> Expiry & Storage
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-500 uppercase">Expiry Date</p>
-                    <p className={`font-mono font-bold ${result.expiry.status === "Expired" ? "text-red-400" :
-                        result.expiry.status === "Near Expiry" ? "text-yellow-400" : "text-emerald-400"
-                      }`}>
-                      {result.expiry.expiry_date}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">Status: {result.expiry.status}</p>
+                    <p className="text-xl font-mono font-bold text-white">{result.expiry.expiry_date}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase">Storage</p>
-                    <p className="text-sm text-slate-300">{result.storage.instructions}</p>
+                  <div className={`px-4 py-2 rounded-lg border ${result.expiry.status === "Expired" ? "bg-red-500/10 border-red-500/20 text-red-400" :
+                    result.expiry.status === "Near Expiry" ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
+                      "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    }`}>
+                    {result.expiry.status}
                   </div>
                 </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Storage Instructions</p>
+                  <p className="text-slate-300 mt-1">{result.storage.instructions}</p>
+                </div>
               </div>
+            </div>
+          </div>
 
-            </motion.div>
-          )}
-        </div>
-      </div>
+          {/* Usage & Safety - Full Width */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+              <Info className="w-5 h-5 text-purple-400" /> Usage & Safety
+            </h3>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-xs text-slate-500 uppercase">Purpose</p>
+                <p className="text-slate-300">{result.usage.purpose}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase">Standard Dosage</p>
+                <p className="text-slate-300">{result.usage.standard_dosage}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase">Age Restrictions</p>
+                <p className="text-slate-300">{result.usage.age_restrictions}</p>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4 mt-4">
+              <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-lg">
+                <p className="text-xs text-red-400 uppercase font-bold mb-2">Side Effects</p>
+                <p className="text-sm text-slate-300">{result.safety.side_effects}</p>
+              </div>
+              <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-lg">
+                <p className="text-xs text-yellow-400 uppercase font-bold mb-2">Allergy Warnings</p>
+                <p className="text-sm text-slate-300">{result.safety.allergy_warning}</p>
+              </div>
+            </div>
+          </div>
+
+        </motion.div>
+      )}
     </div>
   );
 }

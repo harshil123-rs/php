@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(req: NextRequest) {
   try {
-    const { message } = await req.json();
+    const { message, language = "English" } = await req.json();
 
     if (!message) {
       return NextResponse.json(
@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
       history: [
         {
           role: "user",
-          parts: [{ text: "You are a helpful health assistant. Keep answers concise and friendly." }],
+          parts: [{ text: `You are a helpful health assistant. Keep answers concise and friendly. IMPORTANT: Always reply in ${language}.` }],
         },
         {
           role: "model",
-          parts: [{ text: "Understood. I am ready to help with health-related questions." }],
+          parts: [{ text: `Understood. I will help with health-related questions and always reply in ${language}.` }],
         },
       ],
     });

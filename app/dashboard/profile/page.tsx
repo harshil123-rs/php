@@ -54,32 +54,7 @@ export default function ProfilePage() {
     void loadProfile();
   }, [loadProfile]);
 
-  const handleAvatar = async (file: File) => {
-    try {
-      const metaRes = await fetch("/api/profile/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type
-        })
-      });
-      if (!metaRes.ok) {
-        throw new Error("Failed to prepare avatar upload");
-      }
-      const meta = await metaRes.json();
-      await fetch(meta.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file
-      });
-      setForm((prev) => ({ ...prev, avatarKey: meta.urlPublic }));
-      setAvatarUrl(meta.urlPublic);
-      setMessage("Profile photo updated");
-    } catch (err: any) {
-      setMessage(err.message);
-    }
-  };
+
 
   const handleSave = async () => {
     setLoading(true);
@@ -117,30 +92,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="glass-card p-6 flex flex-col md:flex-row gap-6">
-        <div className="space-y-4 max-w-xs">
-          <div className="relative w-32 h-32 rounded-full overflow-hidden border border-card-border/60 mx-auto md:mx-0">
-            {avatarUrl ? (
-              <Image src={avatarUrl} alt="Avatar" fill className="object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted">
-                No photo
-              </div>
-            )}
-          </div>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                await handleAvatar(f);
-              }
-            }}
-          />
-          <p className="text-xs text-muted text-center md:text-left">
-            Upload a square photo for best results.
-          </p>
-        </div>
+
         <div className="flex-1 grid md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-muted">Full name</label>

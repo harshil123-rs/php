@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, LogOut, Settings } from "lucide-react";
+import { Bell, LogOut, Settings, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useLanguage, Language } from "@/components/providers/language-provider";
 
 export function Topbar() {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
+  const { language, setLanguage } = useLanguage();
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", {
@@ -63,6 +65,23 @@ export function Topbar() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="relative">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+            className="h-9 rounded-lg bg-slate-900/80 border border-card-border/60 text-xs px-3 text-slate-300 focus:outline-none focus:border-emerald-500/50 transition-colors appearance-none cursor-pointer"
+          >
+            <option value="English">English</option>
+            <option value="Hindi">Hindi</option>
+            <option value="Spanish">Spanish</option>
+            <option value="French">French</option>
+            <option value="German">German</option>
+            <option value="Chinese">Chinese</option>
+            <option value="Arabic">Arabic</option>
+          </select>
+          <Globe className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
         </div>
 
         <button
