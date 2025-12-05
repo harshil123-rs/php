@@ -26,6 +26,26 @@
       "static/chunks/main-app.js",
       "static/chunks/app/doctor/dashboard/layout.js"
     ],
+    "/doctor/dashboard/analytics/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/doctor/dashboard/analytics/page.js"
+    ],
+    "/doctor/dashboard/certificates/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/doctor/dashboard/certificates/page.js"
+    ],
+    "/doctor/dashboard/prescriptions/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/doctor/dashboard/prescriptions/page.js"
+    ],
+    "/doctor/dashboard/appointments/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/doctor/dashboard/appointments/page.js"
+    ],
     "/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -41,25 +61,40 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/records/page.js"
     ],
-    "/doctor/dashboard/analytics/page": [
+    "/dashboard/medicine/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/doctor/dashboard/analytics/page.js"
+      "static/chunks/app/dashboard/medicine/page.js"
     ],
-    "/doctor/dashboard/appointments/page": [
+    "/dashboard/achievements/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/doctor/dashboard/appointments/page.js"
+      "static/chunks/app/dashboard/achievements/page.js"
     ],
-    "/doctor/dashboard/certificates/page": [
+    "/dashboard/3d-ai/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/doctor/dashboard/certificates/page.js"
+      "static/chunks/app/dashboard/3d-ai/page.js"
     ],
-    "/doctor/dashboard/prescriptions/page": [
+    "/dashboard/appointments/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/doctor/dashboard/prescriptions/page.js"
+      "static/chunks/app/dashboard/appointments/page.js"
+    ],
+    "/dashboard/doctors/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/doctors/page.js"
+    ],
+    "/dashboard/emergency/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/emergency/page.js"
+    ],
+    "/dashboard/profile/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/profile/page.js"
     ]
   }
 }

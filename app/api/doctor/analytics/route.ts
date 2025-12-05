@@ -45,39 +45,61 @@ export async function GET(req: NextRequest) {
     }
 
     // Default: Fetch aggregate data
-    // 1. Total Patients (unique from appointments)
+
+    // 1. Total Patients
+    const { count: totalPatients } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "patient");
+
     // 2. Total Appointments
-    // 3. Pending Appointments
-    // 4. Vitals Trends (mocked or fetched if we had time-series data)
-
-    // For this demo, we'll fetch real counts and mock some trend data if DB is empty
-
     const { count: totalAppointments } = await supabase
         .from("appointments")
         .select("*", { count: "exact", head: true });
 
+    // 3. Pending Appointments
     const { count: pendingAppointments } = await supabase
         .from("appointments")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending");
 
-    // Mock trend data for charts
-    const trends = [
-        { date: "Mon", patients: 4, emergency: 1 },
-        { date: "Tue", patients: 6, emergency: 0 },
-        { date: "Wed", patients: 8, emergency: 2 },
-        { date: "Thu", patients: 5, emergency: 1 },
-        { date: "Fri", patients: 9, emergency: 3 },
-        { date: "Sat", patients: 3, emergency: 0 },
-        { date: "Sun", patients: 2, emergency: 1 },
-    ];
+    // 4. Trends (Last 7 Days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); // Include today
+    const dateString = sevenDaysAgo.toISOString().split('T')[0];
+
+    const { data: recentAppts } = await supabase
+        .from("appointments")
+        .select("date, type")
+        .gte("date", dateString);
+
+    // Process trends
+    const trends = [];
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        const dateKey = d.toISOString().split('T')[0];
+        const dayName = days[d.getDay()];
+
+        const dayAppts = recentAppts?.filter(a => a.date === dateKey) || [];
+        const patientCount = dayAppts.length;
+        const emergencyCount = dayAppts.filter(a => a.type === 'emergency').length;
+
+        trends.push({
+            date: dayName,
+            patients: patientCount,
+            emergency: emergencyCount
+        });
+    }
 
     return NextResponse.json({
         stats: {
-            total_patients: 124, // Mocked for demo as calculating unique is expensive here
+            total_patients: totalPatients || 0,
             total_appointments: totalAppointments || 0,
             pending_appointments: pendingAppointments || 0,
-            avg_rating: 4.8
+            avg_rating: 4.8 // Rating is not yet in DB, keeping mock
         },
         trends
     });

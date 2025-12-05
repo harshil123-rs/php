@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Phone, Star, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import Map from "@/components/ui/map";
+import CallOverlay from "@/components/ui/call-overlay";
 
 type Category = "hospital" | "clinic" | "pharmacy";
 
@@ -105,6 +106,8 @@ export default function DoctorsPage() {
     description: p.vicinity
   })), [places]);
 
+  const [activeCall, setActiveCall] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -115,6 +118,12 @@ export default function DoctorsPage() {
 
   return (
     <div className="space-y-6">
+      <CallOverlay
+        isOpen={!!activeCall}
+        name={activeCall || ""}
+        onEndCall={() => setActiveCall(null)}
+      />
+
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
           Find Care Nearby
@@ -183,7 +192,12 @@ export default function DoctorsPage() {
                 <Navigation className="w-3 h-3" />
                 {place.distance}
               </div>
-              <Button size="sm" variant="ghost" className="h-8 text-blue-400 hover:text-blue-300">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-blue-400 hover:text-blue-300"
+                onClick={() => setActiveCall(place.name)}
+              >
                 <Phone className="w-3 h-3 mr-2" />
                 Call
               </Button>

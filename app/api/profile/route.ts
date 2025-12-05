@@ -33,7 +33,9 @@ export async function GET(_req: NextRequest) {
         allergies: profile.allergies,
         conditions: profile.conditions,
         avatarKey: profile.avatar_url,
-        role: profile.role
+        role: profile.role,
+        emergencyContactName: profile.emergency_contact_name,
+        emergencyContactPhone: profile.emergency_contact_phone
       }
     }
   };

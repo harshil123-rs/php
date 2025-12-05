@@ -1,4 +1,19 @@
 {
+  "components/ui/map.tsx -> ./map-client": {
+    "id": "components/ui/map.tsx -> ./map-client",
+    "files": [
+      "static/css/_app-pages-browser_components_ui_map-client_tsx.css",
+      "static/chunks/_app-pages-browser_components_ui_map-client_tsx.js"
+    ]
+  },
+  "node_modules/@react-three/drei/core/VideoTexture.js -> hls.js": {
+    "id": "node_modules/@react-three/drei/core/VideoTexture.js -> hls.js",
+    "files": []
+  },
+  "node_modules/@react-three/drei/web/FaceLandmarker.js -> @mediapipe/tasks-vision": {
+    "id": "node_modules/@react-three/drei/web/FaceLandmarker.js -> @mediapipe/tasks-vision",
+    "files": []
+  },
   "node_modules/jspdf/dist/jspdf.es.min.js -> canvg": {
     "id": "node_modules/jspdf/dist/jspdf.es.min.js -> canvg",
     "files": [

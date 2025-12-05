@@ -46,7 +46,22 @@ export async function POST(req: NextRequest) {
     .getPublicUrl(filePath);
 
   // 2. AI Extraction (if API key exists)
-  let extractedData = {
+  interface ExtractedData {
+    patient_name: string;
+    age: string;
+    blood_group: string;
+    disease: string;
+    legality: string;
+    vitals?: {
+      heart_rate?: number;
+      blood_pressure?: string;
+      sugar_level?: number;
+      temperature?: number;
+      weight?: number;
+    };
+  }
+
+  let extractedData: ExtractedData = {
     patient_name: "Unknown",
     age: "Unknown",
     blood_group: "Unknown",
@@ -57,7 +72,10 @@ export async function POST(req: NextRequest) {
   if (process.env.GOOGLE_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash-lite-preview-09-2025",
+        generationConfig: { temperature: 0.0 }
+      });
 
       const prompt = `Analyze this medical record image. Extract the following fields and return them as a valid JSON object.
       IMPORTANT: Translate all string values to ${language}.
@@ -67,6 +85,12 @@ export async function POST(req: NextRequest) {
       - blood_group (string)
       - disease (string, diagnosis or main complaint)
       - legality (string, "Valid" if it looks like a real medical document with doctor signature/letterhead, else "Invalid")
+      - vitals (object):
+        - heart_rate (number, bpm)
+        - blood_pressure (string, e.g. "120/80")
+        - sugar_level (number, mg/dL)
+        - temperature (number, Celsius)
+        - weight (number, kg)
       
       Do not include markdown formatting (like \`\`\`json). Just return the raw JSON string.`;
 
@@ -110,6 +134,30 @@ export async function POST(req: NextRequest) {
     })
     .select()
     .single();
+
+  // 4. If vitals were extracted, save them to the vitals table
+  if (doc && extractedData.vitals) {
+    const v = extractedData.vitals;
+    let sys = null;
+    let dia = null;
+
+    if (v.blood_pressure && typeof v.blood_pressure === 'string' && v.blood_pressure.includes('/')) {
+      const parts = v.blood_pressure.split('/');
+      sys = parseInt(parts[0]);
+      dia = parseInt(parts[1]);
+    }
+
+    await supabase.from("vitals").insert({
+      patient_id: user.id,
+      heart_rate: v.heart_rate || null,
+      systolic_bp: sys,
+      diastolic_bp: dia,
+      blood_sugar: v.sugar_level || null,
+      temperature: v.temperature || null,
+      weight: v.weight || null,
+      recorded_at: new Date().toISOString() // Use current time or extract from doc if possible
+    });
+  }
 
   if (insertError) {
     return NextResponse.json({ message: insertError.message }, { status: 500 });

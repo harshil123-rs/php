@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         // This allows doctors to prescribe to any registered user, not just those with appointments.
         const { data: patients, error: profilesError } = await supabase
             .from("profiles")
-            .select("id, full_name, email, created_at")
+            .select("id, full_name, created_at")
             .eq("role", "patient")
             .order("full_name");
 

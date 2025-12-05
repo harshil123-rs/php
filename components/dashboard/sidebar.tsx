@@ -3,24 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import {
-  LayoutDashboard,
-  FileText,
-  Pill,
-  Brain,
-  Star,
-  MapPin,
-  Siren,
-  User,
-  Calendar
-} from "lucide-react";
+import { LayoutDashboard, FileText, Pill, Bot, Trophy, User, LogOut, Calendar, Box, Star, MapPin, Siren } from "lucide-react";
 
 export const dashboardNavLinks = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/ai", label: "AI Assistant", icon: Bot },
   { href: "/dashboard/records", label: "Records", icon: FileText },
   { href: "/dashboard/medicine", label: "Medicine", icon: Pill },
-  { href: "/dashboard/ai", label: "AI Assistant", icon: Brain },
   { href: "/dashboard/achievements", label: "Achievements", icon: Star },
+  { href: "/dashboard/3d-ai", label: "3D AI", icon: Box },
   { href: "/dashboard/appointments", label: "Book Appointment", icon: Calendar },
   { href: "/dashboard/doctors", label: "Doctors", icon: MapPin },
   { href: "/dashboard/emergency", label: "Emergency", icon: Siren },

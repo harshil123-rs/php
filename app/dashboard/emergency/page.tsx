@@ -4,12 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import Map from "@/components/ui/map";
-
-const emergencyContacts = [
-  { name: "Primary Care", phone: "+1 555-202-1111" },
-  { name: "Emergency Contact", phone: "+1 555-808-9900" },
-  { name: "Nearest Hospital", phone: "+1 555-444-2211" }
-];
+import CallOverlay from "@/components/ui/call-overlay";
 
 export default function EmergencyPage() {
   const [sos, setSos] = useState(false);
@@ -20,6 +15,11 @@ export default function EmergencyPage() {
   });
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hospitals, setHospitals] = useState<any[]>([]);
+  const [emergencyContacts, setEmergencyContacts] = useState([
+    { name: "Primary Care", phone: "+1 555-202-1111" }, // Fallback
+    { name: "Emergency Contact", phone: "+1 555-808-9900" }, // Fallback
+    { name: "Nearest Hospital", phone: "911" }
+  ]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -27,11 +27,22 @@ export default function EmergencyPage() {
         const res = await fetch("/api/profile", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
+          const p = data.user.profile;
+
           setMedicalInfo({
-            bloodGroup: data.user.profile?.bloodGroup || "N/A",
-            allergies: data.user.profile?.allergies || "N/A",
-            conditions: data.user.profile?.conditions || "N/A"
+            bloodGroup: p.bloodGroup || "N/A",
+            allergies: p.allergies || "None known",
+            conditions: p.conditions || "None declared"
           });
+
+          // Update contacts if available
+          if (p.emergencyContactName || p.emergencyContactPhone) {
+            setEmergencyContacts([
+              { name: p.emergencyContactName || "Primary Contact", phone: p.emergencyContactPhone || "N/A" },
+              { name: "Ambulance / Emergency", phone: "911" },
+              { name: "Nearest Hospital", phone: "Locating..." } // Will be updated by map logic if possible, or static
+            ]);
+          }
         }
       } catch {
         // ignore in demo mode
@@ -97,8 +108,16 @@ export default function EmergencyPage() {
     description: h.address
   })), [hospitals]);
 
+  const [activeCall, setActiveCall] = useState<string | null>(null);
+
   return (
     <div className="space-y-6">
+      <CallOverlay
+        isOpen={!!activeCall}
+        name={activeCall || ""}
+        onEndCall={() => setActiveCall(null)}
+      />
+
       <div>
         <p className="page-title">Emergency Access</p>
         <p className="page-subtitle">
@@ -162,7 +181,7 @@ export default function EmergencyPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => (window.location.href = `tel:${contact.phone}`)}
+                  onClick={() => setActiveCall(contact.name)}
                 >
                   Call
                 </Button>

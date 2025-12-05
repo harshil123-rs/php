@@ -35,10 +35,14 @@ export async function POST(req: NextRequest) {
       for (const modelName of models) {
         try {
           console.log(`Attempting verification with model: ${modelName}`);
-          const model = genAI.getGenerativeModel({ model: modelName });
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            // Set temperature to 0 for deterministic (consistent) results
+            generationConfig: { temperature: 0.0 }
+          });
           const result = await model.generateContent([prompt, ...imageParts]);
           const response = await result.response;
-          return response;
+          return { response, modelName };
         } catch (error: any) {
           console.warn(`Model ${modelName} failed:`, error.message);
           // Continue to next model
@@ -47,57 +51,70 @@ export async function POST(req: NextRequest) {
       throw new Error("All AI models failed to process the image.");
     };
 
-    const prompt = `Analyze these medicine images (pill bottle, blister pack, or box) and extract detailed information.
-    Return a valid JSON object with the following structure.
-    IMPORTANT: Translate all string values to ${language}.
+    const prompt = `Act as a Pharmaceutical Forensic Expert and AI Vision System.
+    Analyze these medicine images (pill bottle, blister pack, or box) with extreme precision.
+    
+    Your Goal: Extract exact text via OCR, identify the medicine, and detect any signs of counterfeiting or damage.
+
+    Instructions:
+    1. **OCR & Identification**: Read the exact Medicine Name, Dosage, and Manufacturer from the image. Do not guess.
+    2. **Authenticity Check**: Look for high-quality printing, correct logos, and batch numbers. If the text is blurry, misspelled, or the packaging looks cheap, mark as "Suspicious".
+    3. **Consistency**: If you analyze this same image again, you MUST produce the exact same result.
+    4. **Translation**: Translate all output values to ${language}.
+
+    Return a valid JSON object with this EXACT structure:
 
     {
       "identity": {
-        "medicine_name": "string",
+        "medicine_name": "string (Exact name from label)",
         "brand_name": "string",
-        "generic_name": "string",
+        "generic_name": "string (Active ingredient)",
         "manufacturer": "string",
-        "batch_number": "string (or 'Not visible')"
+        "batch_number": "string (Extract exact alphanumeric code or 'Not visible')"
       },
       "authenticity": {
         "status": "Valid" | "Invalid" | "Suspicious",
-        "reason": "string (e.g., 'Batch number matches format', 'Packaging looks authentic')",
+        "reason": "string (Detailed forensic explanation, e.g., 'Hologram visible', 'Text alignment correct')",
         "counterfeit_probability": "Low" | "Medium" | "High"
       },
       "composition": {
-        "ingredients": "string (e.g., 'Paracetamol 500mg, Caffeine 30mg')"
+        "ingredients": "string (List active ingredients and strengths)"
       },
       "usage": {
-        "purpose": "string",
-        "standard_dosage": "string",
+        "purpose": "string (Medical condition treated)",
+        "standard_dosage": "string (Standard dosage guidelines)",
         "age_restrictions": "string"
       },
       "safety": {
-        "side_effects": "string",
-        "drug_interactions": "string",
+        "side_effects": "string (Common side effects)",
+        "drug_interactions": "string (Major interactions)",
         "allergy_warning": "string",
         "pregnancy_safety": "string"
       },
       "storage": {
-        "instructions": "string"
+        "instructions": "string (e.g., 'Store below 25°C')"
       },
       "expiry": {
-        "manufacturing_date": "string (or 'Not visible')",
-        "expiry_date": "string (or 'Not visible')",
+        "manufacturing_date": "string (YYYY-MM-DD or 'Not visible')",
+        "expiry_date": "string (YYYY-MM-DD or 'Not visible')",
         "status": "Safe" | "Near Expiry" | "Expired" | "Unknown"
       },
       "summary": {
         "verdict": "Safe" | "Unsafe" | "Caution",
-        "message": "string (e.g., 'Medicine is Authentic & Safe to Use')"
+        "message": "string (Clear, actionable advice for the patient)"
       }
     }
 
-    Do not include markdown formatting (like \`\`\`json). Just return the raw JSON string.
-    If specific details are not visible in the image, use "Not visible" or reasonable inference based on the identified medicine type (e.g., for standard dosage/usage of a known drug).`;
+    Do not include markdown formatting (like \`\`\`json). Just return the raw JSON string.`;
 
-    // Try user-requested 2.5, then fallbacks
-    const response = await generateWithFallback(
-      ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro"],
+    // Prioritize working models based on available list
+    // User requested real data, so we remove the simulated fallback.
+    // TESTED: gemini-2.5-flash-lite-preview-09-2025 works. gemini-2.0-flash-exp exists but might be rate limited.
+    const { response, modelName } = await generateWithFallback(
+      [
+        
+        "gemini-2.5-flash-lite-preview-09-2025"
+      ],
       prompt,
       imageParts
     );
@@ -107,6 +124,9 @@ export async function POST(req: NextRequest) {
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
     const data = JSON.parse(text);
+
+    // Add the model used to the response
+    data.used_model = modelName;
 
     return NextResponse.json(data);
 

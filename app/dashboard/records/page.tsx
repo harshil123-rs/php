@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -25,23 +26,19 @@ interface RecordItem {
 
 const recordTypes = ["Lab Report", "Prescription", "Imaging", "Insurance", "Other"];
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export default function RecordsPage() {
   const { language } = useLanguage();
-  const [records, setRecords] = useState<RecordItem[]>([]);
+  const { data, error: swrError, isLoading } = useSWR("/api/records", fetcher);
+  const records: RecordItem[] = data?.records || [];
+
   const [file, setFile] = useState<File | null>(null);
   const [recordType, setRecordType] = useState(recordTypes[0]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<RecordItem | null>(null);
-
-  const loadRecords = useCallback(async () => {
-    const res = await fetch("/api/records", { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
-      setRecords(data.records);
-    }
-  }, []);
 
   const awardPoints = async (action: "upload") => {
     try {
@@ -54,10 +51,6 @@ export default function RecordsPage() {
       // ignore gamification errors
     }
   };
-
-  useEffect(() => {
-    void loadRecords();
-  }, [loadRecords]);
 
   const handleUpload = async () => {
     if (!file) {
@@ -84,7 +77,7 @@ export default function RecordsPage() {
       }
 
       setProgress(90);
-      await loadRecords();
+      await mutate("/api/records");
       await awardPoints("upload");
       setFile(null);
       setProgress(100);
@@ -100,7 +93,7 @@ export default function RecordsPage() {
     if (!confirm("Delete this record?")) return;
     const res = await fetch(`/api/records/${id}`, { method: "DELETE" });
     if (res.ok) {
-      setRecords((prev) => prev.filter((record) => record.id !== id));
+      mutate("/api/records");
     }
   };
 
