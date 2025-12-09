@@ -26,11 +26,48 @@ export default function DoctorsPage() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [locationSource, setLocationSource] = useState<"gps" | "ip" | "default">("default");
+  const [activeCall, setActiveCall] = useState<string | null>(null);
 
-  useEffect(() => {
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setError("");
+
+    try {
+      const token = process.env.NEXT_PUBLIC_LOCATIONIQ_TOKEN;
+      const res = await fetch(`https://us1.locationiq.com/v1/search.php?key=${token}&q=${encodeURIComponent(searchQuery)}&format=json&limit=1`);
+
+      if (!res.ok) throw new Error("Location not found");
+
+      const data = await res.json();
+      if (data.length > 0) {
+        setLocation({
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        });
+        setLocationSource("default");
+      } else {
+        setError("Location not found. Please try another query.");
+      }
+    } catch (err) {
+      console.error("Search failed:", err);
+      setError("Failed to search location.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const getLocation = () => {
+    setLoading(true);
+    setError("");
+
     if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser");
-      setLoading(false);
+      fetchIpLocation();
       return;
     }
 
@@ -40,15 +77,42 @@ export default function DoctorsPage() {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
+        setLocationSource("gps");
         setLoading(false);
       },
       (err) => {
-        setError("Unable to retrieve your location.");
-        // Fallback to New York
-        setLocation({ lat: 40.7128, lng: -74.0060 });
-        setLoading(false);
-      }
+        console.warn("GPS failed, trying IP location...", err);
+        let errorMsg = "Unable to retrieve your location.";
+        if (err.code === 1) errorMsg = "Location permission denied.";
+        else if (err.code === 2) errorMsg = "Location unavailable.";
+        else if (err.code === 3) errorMsg = "Location request timed out.";
+
+        setError(errorMsg + " Trying IP fallback...");
+        fetchIpLocation();
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  const fetchIpLocation = async () => {
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      if (!res.ok) throw new Error("IP Location failed");
+      const data = await res.json();
+      setLocation({ lat: data.latitude, lng: data.longitude });
+      setLocationSource("ip");
+      setLoading(false);
+    } catch (err) {
+      console.error("IP Location failed:", err);
+      setError("Unable to retrieve your location. Showing default.");
+      setLocation({ lat: 40.7128, lng: -74.0060 }); // New York fallback
+      setLocationSource("default");
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getLocation();
   }, []);
 
   useEffect(() => {
@@ -106,8 +170,6 @@ export default function DoctorsPage() {
     description: p.vicinity
   })), [places]);
 
-  const [activeCall, setActiveCall] = useState<string | null>(null);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -124,13 +186,45 @@ export default function DoctorsPage() {
         onEndCall={() => setActiveCall(null)}
       />
 
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-          Find Care Nearby
-        </h1>
-        <p className="text-slate-400">
-          Locate the nearest hospitals, clinics, and pharmacies based on your current location.
-        </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Find Care Nearby
+            </h1>
+            <p className="text-slate-400">
+              Locate the nearest hospitals, clinics, and pharmacies.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={getLocation} disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Navigation className="w-4 h-4 mr-2" />}
+            {loading ? "Locating..." : "Retry GPS"}
+          </Button>
+        </div>
+
+        {/* Search Bar */}
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search city or address (e.g. 'San Francisco', '123 Main St')..."
+              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500/50 transition-colors"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={isSearching || !searchQuery.trim()} className="bg-blue-600 hover:bg-blue-700">
+            {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
+          </Button>
+        </form>
+
+        <div className="flex items-center gap-2 text-xs">
+          {locationSource === "gps" && <span className="text-emerald-400 flex items-center gap-1">● Using precise GPS location</span>}
+          {locationSource === "ip" && <span className="text-yellow-500 flex items-center gap-1">● Using approximate IP location</span>}
+          {locationSource === "default" && <span className="text-slate-400 flex items-center gap-1">● Using searched/default location</span>}
+          {error && <span className="text-red-400 ml-auto">{error}</span>}
+        </div>
       </div>
 
       <div className="glass-card p-6 space-y-6">
